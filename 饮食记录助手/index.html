@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="饮食记录">
+    <meta name="theme-color" content="#f59e0b">
+    <meta name="description" content="每日营养追踪 — 记录蛋白质、碳水、脂肪和热量摄入">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icon-192x192.png">
+    <title>饮食记录助手 - 每日营养追踪</title>
+    <link rel="stylesheet" href="style.css">
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(function(){});
+        }
+    </script>
+</head>
+<body>
+
+<!-- ========== 顶部导航 ========== -->
+<header class="app-header">
+    <div class="header-left">
+        <span class="logo">🍽️</span>
+        <h1>饮食记录助手</h1>
+    </div>
+    <div class="header-right">
+        <button class="btn-icon" id="btnHistory" title="历史记录">📋</button>
+        <button class="btn-icon" id="btnCustomFood" title="自定义食物">➕</button>
+        <button class="btn-icon" id="btnSettings" title="个人设置">⚙️</button>
+    </div>
+</header>
+
+<!-- ========== 日期选择 ========== -->
+<div class="date-bar" id="dateBar">
+    <button class="btn-date-nav" id="btnPrevDay">◀</button>
+    <span class="date-display" id="dateDisplay"></span>
+    <button class="btn-date-nav" id="btnNextDay">▶</button>
+    <button class="btn-date-nav" id="btnToday">今天</button>
+</div>
+
+<!-- ========== 每日营养概览 ========== -->
+<div class="nutrition-summary" id="nutritionSummary">
+    <div class="stat-card stat-calories">
+        <div class="stat-value" id="totalCal">0</div>
+        <div class="stat-label">热量(千卡)</div>
+        <div class="stat-target" id="targetCal">目标 2000</div>
+    </div>
+    <div class="stat-card stat-protein">
+        <div class="stat-value" id="totalProtein">0</div>
+        <div class="stat-label">蛋白质(g)</div>
+        <div class="stat-target" id="targetProtein">目标 60</div>
+    </div>
+    <div class="stat-card stat-carbs">
+        <div class="stat-value" id="totalCarbs">0</div>
+        <div class="stat-label">碳水(g)</div>
+        <div class="stat-target" id="targetCarbs">目标 250</div>
+    </div>
+    <div class="stat-card stat-fat">
+        <div class="stat-value" id="totalFat">0</div>
+        <div class="stat-label">脂肪(g)</div>
+        <div class="stat-target" id="targetFat">目标 65</div>
+    </div>
+</div>
+
+<!-- ========== 进度条 ========== -->
+<div class="progress-bars">
+    <div class="progress-item">
+        <span class="progress-label">热量</span>
+        <div class="progress-track"><div class="progress-fill fill-cal" id="barCal"></div></div>
+        <span class="progress-pct" id="pctCal">0%</span>
+    </div>
+    <div class="progress-item">
+        <span class="progress-label">蛋白质</span>
+        <div class="progress-track"><div class="progress-fill fill-protein" id="barProtein"></div></div>
+        <span class="progress-pct" id="pctProtein">0%</span>
+    </div>
+    <div class="progress-item">
+        <span class="progress-label">碳水</span>
+        <div class="progress-track"><div class="progress-fill fill-carbs" id="barCarbs"></div></div>
+        <span class="progress-pct" id="pctCarbs">0%</span>
+    </div>
+    <div class="progress-item">
+        <span class="progress-label">脂肪</span>
+        <div class="progress-track"><div class="progress-fill fill-fat" id="barFat"></div></div>
+        <span class="progress-pct" id="pctFat">0%</span>
+    </div>
+</div>
+
+<!-- ========== 标签切换：食物库 / 今日记录 / 智能建议 ========== -->
+<div class="tab-bar">
+    <button class="tab active" data-tab="foods">🥗 食物库</button>
+    <button class="tab" data-tab="today">📝 今日记录 (<span id="logCount">0</span>)</button>
+    <button class="tab" data-tab="advice">🤖 智能建议</button>
+</div>
+
+<!-- ========== 食物库面板 ========== -->
+<div class="tab-panel active" id="panelFoods">
+    <!-- 搜索栏 -->
+    <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="搜索食物名称..." oninput="renderFoodList()">
+        <button class="btn-clear-search" id="btnClearSearch" onclick="clearSearch()">✕</button>
+    </div>
+    <!-- 分类筛选 -->
+    <div class="category-bar" id="categoryBar"></div>
+    <!-- 食物列表 -->
+    <div class="food-list" id="foodList"></div>
+    <!-- 联网搜索区域 -->
+    <div class="online-search-section" id="onlineSection">
+        <div class="online-divider"><span>本地未找到？试试联网搜索</span></div>
+        <button class="btn-online-search" id="btnOnlineSearch" onclick="searchOnline()">
+            🌐 在 Open Food Facts 中搜索
+        </button>
+        <div class="online-results" id="onlineResults"></div>
+        <div class="online-loading" id="onlineLoading" style="display:none;">
+            <div class="spinner"></div>
+            <span>正在联网搜索...</span>
+        </div>
+        <div class="online-error" id="onlineError" style="display:none;"></div>
+    </div>
+</div>
+
+<!-- ========== 今日记录面板 ========== -->
+<div class="tab-panel" id="panelToday">
+    <div class="meal-section" id="breakfast">
+        <h3 class="meal-title">🌅 早餐</h3>
+        <div class="meal-items" id="breakfastItems"></div>
+        <div class="meal-summary" id="breakfastSummary"></div>
+    </div>
+    <div class="meal-section" id="lunch">
+        <h3 class="meal-title">☀️ 午餐</h3>
+        <div class="meal-items" id="lunchItems"></div>
+        <div class="meal-summary" id="lunchSummary"></div>
+    </div>
+    <div class="meal-section" id="dinner">
+        <h3 class="meal-title">🌙 晚餐</h3>
+        <div class="meal-items" id="dinnerItems"></div>
+        <div class="meal-summary" id="dinnerSummary"></div>
+    </div>
+    <div class="meal-section" id="snacks">
+        <h3 class="meal-title">🍪 加餐/零食</h3>
+        <div class="meal-items" id="snacksItems"></div>
+        <div class="meal-summary" id="snacksSummary"></div>
+    </div>
+</div>
+
+<!-- ========== 智能建议面板 ========== -->
+<div class="tab-panel" id="panelAdvice">
+    <div class="advice-card" id="adviceCard">
+        <div class="advice-placeholder" id="advicePlaceholder">
+            <div class="advice-icon">🤖</div>
+            <p>设置你的身体数据后，AI 将自动判断你的训练阶段并给出营养建议</p>
+            <button class="btn-primary" id="btnOpenSettingsFromAdvice">⚙️ 去设置个人资料</button>
+        </div>
+        <div class="advice-result" id="adviceResult" style="display:none;">
+            <div class="advice-phase" id="advicePhase"></div>
+            <div class="advice-detail" id="adviceDetail"></div>
+            <div class="advice-targets" id="adviceTargets"></div>
+            <button class="btn-outline" id="btnEditProfile">✏️ 修改个人资料</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 历史记录弹窗 ========== -->
+<div class="modal-overlay" id="modalHistory">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>📋 历史记录</h2>
+            <button class="btn-close" id="btnCloseHistory">✕</button>
+        </div>
+        <div class="modal-body" id="historyBody"></div>
+    </div>
+</div>
+
+<!-- ========== 添加食物弹窗 ========== -->
+<div class="modal-overlay" id="modalAddFood">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modalFoodName">添加食物</h2>
+            <button class="btn-close" id="btnCloseAdd">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="add-form">
+                <div class="form-row">
+                    <label>每100克营养成分</label>
+                    <div class="nutrition-preview" id="nutritionPreview"></div>
+                </div>
+                <div class="form-row">
+                    <label for="inputAmount">食用份量（克）</label>
+                    <input type="number" id="inputAmount" value="100" min="1" max="5000" oninput="updatePreview()">
+                </div>
+                <div class="form-row">
+                    <label>用餐类型</label>
+                    <div class="meal-type-select" id="mealTypeSelect">
+                        <button class="meal-type-btn active" data-meal="breakfast">🌅 早餐</button>
+                        <button class="meal-type-btn" data-meal="lunch">☀️ 午餐</button>
+                        <button class="meal-type-btn" data-meal="dinner">🌙 晚餐</button>
+                        <button class="meal-type-btn" data-meal="snacks">🍪 加餐</button>
+                    </div>
+                </div>
+                <div class="form-row" id="previewRow">
+                    <label>实际摄入</label>
+                    <div class="actual-preview" id="actualPreview"></div>
+                </div>
+                <button class="btn-primary btn-block" id="btnConfirmAdd">确认添加</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 自定义食物弹窗 ========== -->
+<div class="modal-overlay" id="modalCustomFood">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>➕ 自定义食物</h2>
+            <button class="btn-close" id="btnCloseCustom">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="custom-form">
+                <div class="form-row">
+                    <label for="customName">食物名称</label>
+                    <div class="custom-name-row">
+                        <input type="text" id="customName" placeholder="输入名称后点"联网查找"一键填充" maxlength="30">
+                        <button class="btn-online-lookup" id="btnOnlineLookup" onclick="lookupOnline()" title="联网查找营养数据">🔍 联网查找</button>
+                    </div>
+                    <div class="lookup-loading" id="lookupLoading" style="display:none;">
+                        <div class="spinner-sm"></div> 正在搜索...
+                    </div>
+                    <div class="lookup-results" id="lookupResults" style="display:none;"></div>
+                </div>
+                <div class="form-row">
+                    <label>营养成分（每100克）</label>
+                    <div class="custom-nutrition-grid">
+                        <div class="custom-field">
+                            <label for="customCal">热量(千卡)</label>
+                            <input type="number" id="customCal" value="100" min="0" max="900">
+                        </div>
+                        <div class="custom-field">
+                            <label for="customProtein">蛋白质(g)</label>
+                            <input type="number" id="customProtein" value="3" min="0" max="100" step="0.1">
+                        </div>
+                        <div class="custom-field">
+                            <label for="customCarbs">碳水(g)</label>
+                            <input type="number" id="customCarbs" value="10" min="0" max="100" step="0.1">
+                        </div>
+                        <div class="custom-field">
+                            <label for="customFat">脂肪(g)</label>
+                            <input type="number" id="customFat" value="1" min="0" max="100" step="0.1">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label for="customCat">分类</label>
+                    <select id="customCat">
+                        <option value="自定义">自定义</option>
+                        <option value="炒菜">炒菜</option>
+                        <option value="汤羹">汤羹</option>
+                        <option value="炖菜">炖菜</option>
+                        <option value="蒸菜">蒸菜</option>
+                        <option value="凉菜">凉菜</option>
+                        <option value="主食">主食</option>
+                        <option value="肉类">肉类</option>
+                        <option value="蛋奶">蛋奶</option>
+                        <option value="海鲜">海鲜</option>
+                        <option value="蔬菜">蔬菜</option>
+                        <option value="水果">水果</option>
+                        <option value="零食">零食</option>
+                        <option value="饮品">饮品</option>
+                    </select>
+                </div>
+                <button class="btn-primary btn-block" id="btnConfirmCustom">保存自定义食物</button>
+                <div style="margin-top:10px;font-size:0.75rem;color:#94a3b8;text-align:center;">
+                    已保存 <span id="customCount">0</span> 种自定义食物
+                    <button class="btn-link" id="btnManageCustom">管理</button>
+                </div>
+                <div id="customList" style="display:none;margin-top:8px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 个人设置弹窗 ========== -->
+<div class="modal-overlay" id="modalSettings">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>⚙️ 个人身体数据</h2>
+            <button class="btn-close" id="btnCloseSettings">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="settings-form">
+                <p class="settings-desc">填写以下数据，AI 将自动计算你的每日营养目标</p>
+                <div class="form-row">
+                    <label>性别</label>
+                    <div class="gender-select">
+                        <button class="gender-btn active" data-gender="male">👨 男</button>
+                        <button class="gender-btn" data-gender="female">👩 女</button>
+                    </div>
+                </div>
+                <div class="settings-grid">
+                    <div class="settings-field">
+                        <label for="profileAge">年龄</label>
+                        <input type="number" id="profileAge" value="22" min="10" max="100">
+                    </div>
+                    <div class="settings-field">
+                        <label for="profileHeight">身高(cm)</label>
+                        <input type="number" id="profileHeight" value="170" min="100" max="250">
+                    </div>
+                    <div class="settings-field">
+                        <label for="profileWeight">体重(kg)</label>
+                        <input type="number" id="profileWeight" value="65" min="30" max="200" step="0.1">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label for="profileActivity">活动水平</label>
+                    <select id="profileActivity">
+                        <option value="1.2">久坐（几乎不运动）</option>
+                        <option value="1.375" selected>轻度活动（每周1-3次运动）</option>
+                        <option value="1.55">中度活动（每周3-5次运动）</option>
+                        <option value="1.725">高度活动（每周6-7次运动）</option>
+                        <option value="1.9">运动员级别（高强度体力劳动）</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label for="profileGoal">当前目标</label>
+                    <select id="profileGoal">
+                        <option value="cut">减脂期 — 制造热量缺口，保留肌肉</option>
+                        <option value="maintain" selected>保持体重 — 维持当前体型</option>
+                        <option value="bulk">增肌期 — 热量盈余，最大化肌肉增长</option>
+                    </select>
+                </div>
+                <button class="btn-primary btn-block" id="btnSaveProfile">💾 保存并分析</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
