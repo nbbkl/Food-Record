@@ -13,7 +13,11 @@ var ASSETS = [
 self.addEventListener('install', function(e) {
     e.waitUntil(
         caches.open(CACHE_NAME).then(function(cache) {
-            return cache.addAll(ASSETS);
+            return Promise.all(ASSETS.map(function(url) {
+                return cache.add(url).catch(function(err) {
+                    console.warn('[SW] 缓存失败:', url, err);
+                });
+            }));
         })
     );
     self.skipWaiting();
